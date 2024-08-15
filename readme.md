@@ -1,10 +1,11 @@
 # CFSAN Wastewater Analysis Pipeline 
 ## C-WAP
 
-| Made the following changes:
+| **Made the following changes:
 1. Commented out a few stages of the pipeline to make it faster.
 2. Replaced bowtie with minimap2 even for Illumina data.
-3. Performing ivar trimming with low quality threshold for all types of sequencing data. |
+3. Performing ivar trimming with low quality threshold for all types of sequencing data.** |
+|:------ |
 
 | **Given the [project timeline](https://www.fda.gov/food/whole-genome-sequencing-wgs-program/wastewater-surveillance-sars-cov-2-variants), C-WAP will no longer be under active development or maintenance come June 30, 2023. Please refer to the C-WAP successor [Aquascope](https://github.com/CDCgov/aquascope) for an actively supported workflow. [Freyja](https://github.com/andersen-lab/Freyja) or [Kallisto](https://github.com/pachterlab/kallisto) (two of the tools C-WAP incorporates) may also be of interest. Thank you for joining us on our analytic journey.**  | 
 |:------ |
