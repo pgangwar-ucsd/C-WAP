@@ -126,10 +126,7 @@ process referenceAlignment {
     output:
         tuple val(sampleName), file('aligned.sam') into aligned_sam
 
-    if (platform == "Illumina")
-        conda "$projectDir/conda/env-bowtie2"
-    else
-        conda "$projectDir/conda/env-minimap2"
+    conda "$projectDir/conda/env-minimap2"
     
     shell:
     refSeqBasename = params.referenceSequence.replaceAll('.fa$', '')
@@ -143,9 +140,9 @@ process referenceAlignment {
         case $platform in
             Illumina)
                 if $isPairedEnd; then
-                    bowtie2 --no-unal --threads \$numThreads -x $refSeqBasename -1 R1.fastq.gz -2 R2.fastq.gz -S aligned.sam
+                    minimap2 -a --sam-hit-only -2 -x sr ${refSeqBasename}.mmi R1.fastq.gz R2.fastq.gz -t \$numThreads -o aligned.sam
                 else
-                    bowtie2 --no-unal --threads \$numThreads -x $refSeqBasename -U R1.fastq.gz -S aligned.sam
+                    minimap2 -a --sam-hit-only -2 -x sr ${refSeqBasename}.mmi R1.fastq.gz -t \$numThreads -o aligned.sam
                 fi
                 ;;
             ONT)
@@ -187,11 +184,7 @@ process trimming {
         samtools sort aligned.sam -o sorted.bam -@ \$numThreads
         
         # Nanopore has a much lower read quality, so the quality trimming should be much more lax.
-        if [[ $platform == ONT ]]; then
-            ivar trim -e -b $primerBedFile -p trimmed -i sorted.bam -q 1 | tee ivar.stdout
-        else
-            ivar trim -e -b $primerBedFile -p trimmed -i sorted.bam | tee ivar.stdout
-        fi
+        ivar trim -e -b $primerBedFile -p trimmed -i sorted.bam -q 1 | tee ivar.stdout
         
         # Generate a tsv file tabulating the number of reads vs trimmer primer name in the bed file
         cat ivar.stdout | grep -A 10000 "Primer Name" | head -n -5 > primer_hit_counts.tsv
@@ -480,59 +473,61 @@ process kallistoVariantCaller {
 }
 
 
-process freyjaVariantCaller {
-    memory {2.GB * task.attempt }
-    label 'high_cpu'
 
-    input:
-        tuple val(sampleName), env(numReads), path('resorted.bam') from resorted_bam_d
-        
-    output:
-        tuple val(sampleName), path('freyja.demix'), path('freyja_boot_lineages.csv'), path('freyja_bootstrap.png') into freyja_out
-
-    conda "$projectDir/conda/env-freyja"
-
-    shell:
-    """
-        if [[ \$numReads -lt 100 ]]; then
-            echo INSUFFICIENT DATA > freyja.demix
-            echo summarized\$'\t'"[('Undetermined', 1.00)]" >> freyja.demix
-            echo lineages\$'\t'Undetermined >> freyja.demix
-            echo abundances\$'\t'1.00 >> freyja.demix
-            echo resid\$'\t'-1 >> freyja.demix
-            echo coverage\$'\t'-1 >> freyja.demix
-            
-            echo "Undetermined" > freyja_boot_lineages.csv 
-            touch freyja_bootstrap.png
-        else 
-            if [[ $task.attempt -lt 4 ]]; then
-                echo Pileup generation for Freyja...
-                freyja variants resorted.bam --variants freyja.variants.tsv --depths freyja.depths.tsv --ref $params.referenceSequence
-                
-                echo Demixing variants by Freyja and bootstrapping
-                freyja demix freyja.variants.tsv freyja.depths.tsv --output freyja.demix --confirmedonly &
-                freyja boot freyja.variants.tsv freyja.depths.tsv --nt \$(nproc) --nb 1000 --output_base freyja_boot
-                wait
-                
-                echo Parsing bootstrapping output...
-                export PYTHONHASHSEED=0
-                python3 $projectDir/parseFreyjaBootstraps.py freyja.demix freyja_boot_lineages.csv freyja_bootstrap.png
-            else
-                # Due to a potential bug, some big fastqs result in a pandas error.
-                # Generate an empty file to circumvent such failure cases
-                echo FATAL ERROR > freyja.demix
-                echo summarized\$'\t'"[('Error', 1.00)]" >> freyja.demix
-                echo lineages\$'\t'Error >> freyja.demix
-                echo abundances\$'\t'1.00 >> freyja.demix
-                echo resid\$'\t'-1 >> freyja.demix
-                echo coverage\$'\t'-1 >> freyja.demix
-                
-                echo "ERROR" > freyja_boot_lineages.csv 
-                touch freyja_bootstrap.png
-            fi
-        fi
-    """
-}
+/////////////////////////////////REMOVE
+//process freyjaVariantCaller {
+//    memory {2.GB * task.attempt }
+//    label 'high_cpu'
+//
+//    input:
+//        tuple val(sampleName), env(numReads), path('resorted.bam') from resorted_bam_d
+//        
+//    output:
+//        tuple val(sampleName), path('freyja.demix'), path('freyja_boot_lineages.csv'), path('freyja_bootstrap.png') into freyja_out
+//
+//    conda "$projectDir/conda/env-freyja"
+//
+//    shell:
+//    """
+//        if [[ \$numReads -lt 100 ]]; then
+//            echo INSUFFICIENT DATA > freyja.demix
+//            echo summarized\$'\t'"[('Undetermined', 1.00)]" >> freyja.demix
+//            echo lineages\$'\t'Undetermined >> freyja.demix
+//            echo abundances\$'\t'1.00 >> freyja.demix
+//            echo resid\$'\t'-1 >> freyja.demix
+//            echo coverage\$'\t'-1 >> freyja.demix
+//            
+//            echo "Undetermined" > freyja_boot_lineages.csv 
+//            touch freyja_bootstrap.png
+//        else 
+//            if [[ $task.attempt -lt 4 ]]; then
+//                echo Pileup generation for Freyja...
+//                freyja variants resorted.bam --variants freyja.variants.tsv --depths freyja.depths.tsv --ref $params.referenceSequence
+//                
+//                echo Demixing variants by Freyja and bootstrapping
+//                freyja demix freyja.variants.tsv freyja.depths.tsv --output freyja.demix --confirmedonly &
+//                freyja boot freyja.variants.tsv freyja.depths.tsv --nt \$(nproc) --nb 1000 --output_base freyja_boot
+//                wait
+//                
+//                echo Parsing bootstrapping output...
+//                export PYTHONHASHSEED=0
+//                python3 $projectDir/parseFreyjaBootstraps.py freyja.demix freyja_boot_lineages.csv freyja_bootstrap.png
+//            else
+//                # Due to a potential bug, some big fastqs result in a pandas error.
+//                # Generate an empty file to circumvent such failure cases
+//                echo FATAL ERROR > freyja.demix
+//                echo summarized\$'\t'"[('Error', 1.00)]" >> freyja.demix
+//                echo lineages\$'\t'Error >> freyja.demix
+//                echo abundances\$'\t'1.00 >> freyja.demix
+//                echo resid\$'\t'-1 >> freyja.demix
+//                echo coverage\$'\t'-1 >> freyja.demix
+//                
+//                echo "ERROR" > freyja_boot_lineages.csv 
+//                touch freyja_bootstrap.png
+//            fi
+//        fi
+//    """
+//}
 
 
 // A metadata fetch attemp from NCBI via Entrez-Direct
@@ -635,124 +630,123 @@ process getNCBImetadata {
 }
 
 
-
-// Computation is now mostly over. All threads need to synchronise here.
-// We will group based on the sample name and pass everything to the report
-// generation steps.
-reportInputCh = metadata.join(samtools_stats).join(k2_std_out).join(QChists)
-                        .join(readLengthHist_out).join(linearDeconvolution_out)
-                        .join(k2_covid_out).join(pangolin_out).join(kallisto_out)
-                        .join(freyja_out)
-
-
-
-///////////////////////////////////////////////
-// Report generation and final output
-///////////////////////////////////////////////
-
-// Generates a report based on the computation results generated by executeAnalysis.sh
-// One separate html report per each sample (i.e. per fastq/fastq pair)
-process generateReport {
-    input:
-        tuple val(sampleName), env(libraryProtocol), env(seqInstrument), env(isolate), env(collectionDate), env(collectedBy), env(sequencedBy), env(sampleLatitude), env(sampleLongitude), env(sampleLocation),
-        path('sorted.stats'), path('resorted.stats'), path('primer_hit_counts.tsv'),
-        path('k2-std.out'),
-        path('pos-coverage-quality.tsv'), path('coverage.png'), path('depthHistogram.png'), path('quality.png'), path('qualityHistogram.png'), path('discontinuitySignal.png'), path('genesVSuncovered_abscounts.png'), path('genesVSuncovered_scaled.png'), path('absCounts.csv'), path('scaledCounts.csv'), path('breadthVcov.csv'), path('breadthVSdepth.png'),
-        path('readLengthHist.png'), path('timeVSreadcounts.png'),
-        path('linearDeconvolution_abundance.csv'), path('mutationTable.html'), path('VOC-VOIsupportTable.html'), path('mutationTable.csv'), env(mostAbundantVariantPct), env(mostAbundantVariantName), env(linRegressionR2),
-        path('k2-majorCovid_bracken.out'), path('k2-majorCovid.out'),
-        env(consensusLineage), path('lineage_report.csv'), path('consensus.fa'),
-        path('kallisto_abundance.tsv'),
-        path('freyja.demix'), path('freyja_boot_lineages.csv'), path('freyja_bootstrap.png') from reportInputCh
-    
-    output:
-        file "outfolder" into reportCh
-        
-    conda "$projectDir/conda/env-python"
-    
-    shell:
-    """
-        echo Making pie charts...
-        export PYTHONHASHSEED=0
-        $projectDir/plotPieChartsforAbundance.py ./ $params.variantDBfile linearDeconvolution_abundance.csv kallisto_abundance.tsv k2-majorCovid_bracken.out freyja.demix
-        
-        export kallistoTopName=\$(cat kallisto.out | sort -k 2 -n | tail -n 1 | awk '{ print \$1 }')
-        
-        echo generating report.html...
-        $projectDir/generateReport.sh $sampleName $projectDir/htmlHeader.html $isPairedEnd $primerBedFile $projectDir
-    """
-}
-
-
-
-// The below process runs once per folder and generates a concise summary of all samples after all other
-// executions are over.
-process summaryPage {
-    input:
-        file 'report' from reportCh.collect()
-    
-    output:
-        file "analysisResults" into results_with_summary
-
-    conda "$projectDir/conda/env-python"
-    
-    shell:
-    """
-        $projectDir/generateSummary.sh $projectDir/htmlHeader.html $params.variantDBfile $projectDir
-    """
-}
-
-
-
-// OPTIONAL: convert html reports into pdf and then generate a combined pdf of all results.
-// Useful if need to share the result with external collaborators
-process html2pdf {
-    input:
-        file "analysisResults" from results_with_summary
-    
-    output:
-        file "analysisResults" into analysisResults
-
-    conda "$projectDir/conda/env-gs-wkhtmltopdf"
-    label 'high_cpu'
-    publishDir "$params.out", mode: 'copy', overwrite: true	
-    
-    shell:
-    if (params.make_pdfs) {
-    """
-        echo Generating report.pdf...
-        cd analysisResults
-        for sampleName in \$(ls */ -d | tr -d '/'); do
-            awk '1; /Detected mutations/{exit}' \$sampleName/\${sampleName}_report/report.html > \$sampleName/\${sampleName}_report/temp.html
-            echo "Excluded from this pdf version due to file size limitations." >> \$sampleName/\${sampleName}_report/temp.html
-            echo "<br>"\$'\n'"</body>"\$'\n'"</html>" >> \$sampleName/\${sampleName}_report/temp.html
-            
-            wkhtmltopdf --enable-local-file-access --page-size Letter --margin-top 10mm --margin-bottom 0 --margin-left 0 \
-                --margin-right 0 --print-media-type --title "Wastewater report" \$sampleName/\${sampleName}_report/temp.html \
-                \$sampleName/\${sampleName}_report/report.pdf &
-        done
-        
-        echo Generating summary.pdf...
-        wkhtmltopdf --enable-local-file-access --page-size Letter --margin-top 10mm --margin-bottom 0 \
-            --margin-left 0 --margin-right 0 --print-media-type --title "Wastewater report" summary.html summary.pdf &
-        
-        echo Waiting for the conversion processes to complete
-        wait
-        rm ./*/*/temp.html
-        
-        echo Merging PDFs...
-        gs -dNOPAUSE -dQUIET -dBATCH -sDEVICE=pdfwrite -dPreserveAnnots=false -sOUTPUTFILE=./consolidated.pdf ./summary.pdf ./*/*report/report.pdf
-    """
-    }
-    else {
-    """
-        echo make_pdfs was set to false, so skipped the pdf generation.
-    """
-    }
-}
-
-
-analysisResults.subscribe onComplete: {
-    println('Pipeline execution complete. Thank you for choosing C-WAP')
-}
-
+/////////////////////////////////REMOVE
+//// Computation is now mostly over. All threads need to synchronise here.
+//// We will group based on the sample name and pass everything to the report
+//// generation steps.
+//reportInputCh = metadata.join(samtools_stats).join(k2_std_out).join(QChists)
+//                        .join(readLengthHist_out).join(linearDeconvolution_out)
+//                        .join(k2_covid_out).join(pangolin_out).join(kallisto_out)
+//                        .join(freyja_out)
+//
+//
+//
+/////////////////////////////////////////////////
+//// Report generation and final output
+/////////////////////////////////////////////////
+//
+//// Generates a report based on the computation results generated by executeAnalysis.sh
+//// One separate html report per each sample (i.e. per fastq/fastq pair)
+//process generateReport {
+//    input:
+//        tuple val(sampleName), env(libraryProtocol), env(seqInstrument), env(isolate), env(collectionDate), env(collectedBy), env(sequencedBy), env(sampleLatitude), env(sampleLongitude), env(sampleLocation),
+//        path('sorted.stats'), path('resorted.stats'), path('primer_hit_counts.tsv'),
+//        path('k2-std.out'),
+//        path('pos-coverage-quality.tsv'), path('coverage.png'), path('depthHistogram.png'), path('quality.png'), path('qualityHistogram.png'), path('discontinuitySignal.png'), path('genesVSuncovered_abscounts.png'), path('genesVSuncovered_scaled.png'), path('absCounts.csv'), path('scaledCounts.csv'), path('breadthVcov.csv'), path('breadthVSdepth.png'),
+//        path('readLengthHist.png'), path('timeVSreadcounts.png'),
+//        path('linearDeconvolution_abundance.csv'), path('mutationTable.html'), path('VOC-VOIsupportTable.html'), path('mutationTable.csv'), env(mostAbundantVariantPct), env(mostAbundantVariantName), env(linRegressionR2),
+//        path('k2-majorCovid_bracken.out'), path('k2-majorCovid.out'),
+//        env(consensusLineage), path('lineage_report.csv'), path('consensus.fa'),
+//        path('kallisto_abundance.tsv'),
+//        path('freyja.demix'), path('freyja_boot_lineages.csv'), path('freyja_bootstrap.png') from reportInputCh
+//    
+//    output:
+//        file "outfolder" into reportCh
+//        
+//    conda "$projectDir/conda/env-python"
+//    
+//    shell:
+//    """
+//        echo Making pie charts...
+//        export PYTHONHASHSEED=0
+//        $projectDir/plotPieChartsforAbundance.py ./ $params.variantDBfile linearDeconvolution_abundance.csv kallisto_abundance.tsv k2-majorCovid_bracken.out freyja.demix
+//        
+//        export kallistoTopName=\$(cat kallisto.out | sort -k 2 -n | tail -n 1 | awk '{ print \$1 }')
+//        
+//        echo generating report.html...
+//        $projectDir/generateReport.sh $sampleName $projectDir/htmlHeader.html $isPairedEnd $primerBedFile $projectDir
+//    """
+//}
+//
+//
+//
+//// The below process runs once per folder and generates a concise summary of all samples after all other
+//// executions are over.
+//process summaryPage {
+//    input:
+//        file 'report' from reportCh.collect()
+//    
+//    output:
+//        file "analysisResults" into results_with_summary
+//
+//    conda "$projectDir/conda/env-python"
+//    
+//    shell:
+//    """
+//        $projectDir/generateSummary.sh $projectDir/htmlHeader.html $params.variantDBfile $projectDir
+//    """
+//}
+//
+//
+//
+//// OPTIONAL: convert html reports into pdf and then generate a combined pdf of all results.
+//// Useful if need to share the result with external collaborators
+//process html2pdf {
+//    input:
+//        file "analysisResults" from results_with_summary
+//    
+//    output:
+//        file "analysisResults" into analysisResults
+//
+//    conda "$projectDir/conda/env-gs-wkhtmltopdf"
+//    label 'high_cpu'
+//    publishDir "$params.out", mode: 'copy', overwrite: true	
+//    
+//    shell:
+//    if (params.make_pdfs) {
+//    """
+//        echo Generating report.pdf...
+//        cd analysisResults
+//        for sampleName in \$(ls */ -d | tr -d '/'); do
+//            awk '1; /Detected mutations/{exit}' \$sampleName/\${sampleName}_report/report.html > \$sampleName/\${sampleName}_report/temp.html
+//            echo "Excluded from this pdf version due to file size limitations." >> \$sampleName/\${sampleName}_report/temp.html
+//            echo "<br>"\$'\n'"</body>"\$'\n'"</html>" >> \$sampleName/\${sampleName}_report/temp.html
+//            
+//            wkhtmltopdf --enable-local-file-access --page-size Letter --margin-top 10mm --margin-bottom 0 --margin-left 0 \
+//                --margin-right 0 --print-media-type --title "Wastewater report" \$sampleName/\${sampleName}_report/temp.html \
+//                \$sampleName/\${sampleName}_report/report.pdf &
+//        done
+//        
+//        echo Generating summary.pdf...
+//        wkhtmltopdf --enable-local-file-access --page-size Letter --margin-top 10mm --margin-bottom 0 \
+//            --margin-left 0 --margin-right 0 --print-media-type --title "Wastewater report" summary.html summary.pdf &
+//        
+//        echo Waiting for the conversion processes to complete
+//        wait
+//        rm ./*/*/temp.html
+//        
+//        echo Merging PDFs...
+//        gs -dNOPAUSE -dQUIET -dBATCH -sDEVICE=pdfwrite -dPreserveAnnots=false -sOUTPUTFILE=./consolidated.pdf ./summary.pdf ./*/*report/report.pdf
+//    """
+//    }
+//    else {
+//    """
+//        echo make_pdfs was set to false, so skipped the pdf generation.
+//    """
+//    }
+//}
+//
+//
+//analysisResults.subscribe onComplete: {
+//    println('Pipeline execution complete. Thank you for choosing C-WAP')
+//}
