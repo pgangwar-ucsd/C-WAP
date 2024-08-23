@@ -184,8 +184,7 @@ process trimming {
         samtools sort aligned.sam -o sorted.bam -@ \$numThreads
         
         # Nanopore has a much lower read quality, so the quality trimming should be much more lax.
-        #ivar trim -e -b $primerBedFile -p trimmed -i sorted.bam -q 1 | tee ivar.stdout
-        ivar trim -e -b $primerBedFile -p trimmed -i sorted.bam -q 10 -m 80 -x 3 | tee ivar.stdout
+        ivar trim -e -b $primerBedFile -p trimmed -i sorted.bam -q 1 -m 80 -x 3 | tee ivar.stdout
         
         # Generate a tsv file tabulating the number of reads vs trimmer primer name in the bed file
         cat ivar.stdout | grep -A 10000 "Primer Name" | head -n -5 > primer_hit_counts.tsv
