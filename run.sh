@@ -4,7 +4,7 @@ if [ $# -eq 1 ]; then
 
     #Keep reads in fastq.gz in the specified folder and get rid of fastq
     rm -rf work
-    rm .nextflow.log
+    #rm .nextflow.log
     export K2_STD_DB_PATH=$PWD
 
     # For ONT
