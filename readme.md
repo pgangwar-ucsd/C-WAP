@@ -16,7 +16,7 @@ The CFSAN Wastewater Analysis Pipeline (C-WAP) uses a reference-based alignment 
 
 The process includes the following:
 1. Designating a reference and NGS data in fastq format
-2. Alignment of reads to the reference via Bowtie2
+2. Alignment of reads to the reference via Minimap2
 3. Taxonomy check via Kraken2
 4. Processing of alignment results via Samtools
 5. Detection of variant positions with iVar
