@@ -16,7 +16,7 @@ if [ $# -eq 1 ]; then
     bam_file=$(find work -name resorted.bam | head -n 1)
 
     # Copy bam to Freyja
-    cp ${bam_file} ${fastq_path}/../src/Freyja/
+    cp ${bam_file} $PWD/../Freyja/
     cp ${bam_file} ${fastq_path}
 
 
