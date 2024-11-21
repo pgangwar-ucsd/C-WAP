@@ -13,10 +13,12 @@ if [ $# -eq 1 ]; then
     # For single-end Illumina
     ./startWorkflow.nf --platform s --in ${fastq_path} --out point_loma
 
+    # For double-end Illumina
+    #./startWorkflow.nf --platform i --in ${fastq_path} --out point_loma
+
     bam_file=$(find work -name resorted.bam | head -n 1)
 
-    # Copy bam to Freyja
-    cp ${bam_file} $PWD/../Freyja/
+    # Copy bam to WEPP
     cp ${bam_file} ${fastq_path}
 
 
