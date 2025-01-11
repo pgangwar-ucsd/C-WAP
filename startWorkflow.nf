@@ -140,16 +140,16 @@ process referenceAlignment {
         case $platform in
             Illumina)
                 if $isPairedEnd; then
-                    minimap2 -a --sam-hit-only -2 -x sr ${refSeqBasename}.mmi R1.fastq.gz R2.fastq.gz -t \$numThreads -o aligned.sam
+                    minimap2 -a --sam-hit-only --MD -2 -x sr ${refSeqBasename}.mmi R1.fastq.gz R2.fastq.gz -t \$numThreads -o aligned.sam
                 else
-                    minimap2 -a --sam-hit-only -2 -x sr ${refSeqBasename}.mmi R1.fastq.gz -t \$numThreads -o aligned.sam
+                    minimap2 -a --sam-hit-only --MD -2 -x sr ${refSeqBasename}.mmi R1.fastq.gz -t \$numThreads -o aligned.sam
                 fi
                 ;;
             ONT)
-                minimap2 -a --sam-hit-only -2 -x map-ont ${refSeqBasename}.mmi R1.fastq.gz -t \$numThreads -o aligned.sam
+                minimap2 -a --sam-hit-only --MD -2 -x map-ont ${refSeqBasename}.mmi R1.fastq.gz -t \$numThreads -o aligned.sam
                 ;;
             PacBio)
-                minimap2 -a --sam-hit-only -2 -x map-hifi $projectDir/covidRefSequences/PacBioHiFi.mmi R1.fastq.gz -t \$numThreads -o aligned.sam
+                minimap2 -a --sam-hit-only --MD -2 -x map-hifi $projectDir/covidRefSequences/PacBioHiFi.mmi R1.fastq.gz -t \$numThreads -o aligned.sam
                 ;;
         esac
     """
