@@ -5,7 +5,7 @@ if [ $# -eq 2 ]; then
     rm -rf work
     #rm .nextflow.log
     export K2_STD_DB_PATH=$PWD
-    # ./startWorkflow.nf --platform $2 --in ${fastq_path} --out point_loma
+    ./startWorkflow.nf --platform $2 --in ${fastq_path} --out point_loma
     bam_file=$(find work -name resorted.bam | head -n 1)
     # Copy bam to WEPP
     cp ${bam_file} ${fastq_path}
